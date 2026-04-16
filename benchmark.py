@@ -3,6 +3,11 @@ import time
 import threading
 import subprocess
 import statistics
+import argparse
+from rich.console import Console
+from rich.table import Table
+
+console = Console()
 
 URL = "http://localhost:8000/v1/completions"
 MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
@@ -96,65 +101,81 @@ def run_test(num_requests, max_tokens):
 
 
 def print_table(title, data, row_key, col_key):
-    print(f"\n=== {title} ===\n")
-
     rows = sorted(set(d[row_key] for d in data))
     cols = sorted(set(d[col_key] for d in data))
 
-    # build cells
-    table = {}
-    max_cell_width = 0
+    table = Table(title=f"\n[bold]{title}[/bold]", show_header=True, header_style="bold magenta", show_lines=True)
+    table.add_column(str(row_key).capitalize(), style="bold bright_black", justify="center", vertical="middle")
+    
+    for c in cols:
+        table.add_column(f"{col_key}={c}", justify="center", vertical="middle")
 
     for r in rows:
+        row_data = [str(r)]
         for c in cols:
-            match = next(
-                (d for d in data if d[row_key] == r and d[col_key] == c),
-                None
-            )
+            match = next((d for d in data if d[row_key] == r and d[col_key] == c), None)
             if match:
-                cell = f"{match['req_per_sec']:.1f} r/s | {match['tok_per_sec']:.0f} t/s | {match['gpu_avg']:.0f}%"
+                cell = f"[bold green]{match['req_per_sec']:.1f} requests/s[/bold green]\n[bold cyan]{match['tok_per_sec']:.0f} tokens/s[/bold cyan]\n[bold yellow]GPU: {match['gpu_avg']:.0f}%[/bold yellow]"
             else:
                 cell = "-"
-            table[(r, c)] = cell
-            max_cell_width = max(max_cell_width, len(cell))
+            row_data.append(cell)
+        table.add_row(*row_data)
 
-    col_width = max_cell_width + 2
-    row_label_width = max(len(str(row_key)), max(len(str(r)) for r in rows)) + 2
+    console.print(table)
+    console.print()
 
-    # MAIN HEADER (centered to the column width)
-    header = str(row_key).ljust(row_label_width)
-    for c in cols:
-        col_name = f"{col_key}={c}"
-        header += col_name.center(col_width)
-    print(header)
 
-    # SUB-HEADER (same logic)
-    sub_header = " ".ljust(row_label_width)
-    metric_label = "req/s | tok/s | GPU%"
-    for _ in cols:
-        sub_header += metric_label.center(col_width)
-    print(sub_header)
+def save_markdown_report(engine, results):
+    filename = f"benchmark_results_{engine}.md"
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(f"# Benchmark Results\n\n")
+        f.write(f"**API Engine**: {engine.upper()}\n\n")
 
-    print("-" * (row_label_width + col_width * len(cols)))
+        def write_table(title, row_key, col_key):
+            f.write(f"## {title}\n\n")
+            rows = sorted(set(d[row_key] for d in results))
+            cols = sorted(set(d[col_key] for d in results))
 
-    # rows (keeps consistent alignment)
-    for r in rows:
-        line = str(r).ljust(row_label_width)
-        for c in cols:
-            line += table[(r, c)].ljust(col_width)
-        print(line)
+            header = f"| {str(row_key).capitalize()} | " + " | ".join([f"{col_key}={c}" for c in cols]) + " |\n"
+            separator = "|---|" + "|".join(["---" for _ in cols]) + "|\n"
+            f.write(header)
+            f.write(separator)
+
+            for r in rows:
+                row_str = f"| {r} |"
+                for c in cols:
+                    match = next((d for d in results if d[row_key] == r and d[col_key] == c), None)
+                    if match:
+                        cell = f"{match['req_per_sec']:.1f} requests/s<br>{match['tok_per_sec']:.0f} tokens/s<br>GPU: {match['gpu_avg']:.0f}%"
+                    else:
+                        cell = "-"
+                    row_str += f" {cell} |"
+                f.write(row_str + "\n")
+            f.write("\n")
+
+        write_table("Impact of REQUESTS increase", "requests", "max_tokens")
+        write_table("Impact of TOKENS increase", "max_tokens", "requests")
+        
+    console.print(f"\n[bold green]Results successfully saved in Markdown format to {filename}[/bold green]")
 
 
 def main():
+    parser = argparse.ArgumentParser(description="LLM Benchmark Script")
+    parser.add_argument("--engine", type=str, default="vllm", 
+                        help="Specify the name of the engine, API, or experiment (e.g. 'vllm', 'hf', 'TGI-Test').")
+    args = parser.parse_args()
+
     results = []
+
+    console.rule(f"[bold blue]Starting Benchmarks (Engine: {args.engine.upper()})[/bold blue]")
 
     for reqs in REQUEST_LEVELS:
         for max_toks in MAX_TOKENS_LEVELS:
-            print(f"\nRunning test: {reqs} reqs | max_tokens={max_toks}")
+            console.print(f"[bold]Running test:[/bold] [green]{reqs} reqs[/green] | [cyan]max_tokens={max_toks}[/cyan] ...")
             res = run_test(reqs, max_toks)
             results.append(res)
 
-    print("\n\n========== ORGANIZED RESULTS ==========\n")
+    console.rule("[bold green]ORGANIZED RESULTS[/bold green]")
 
     # Table 1: requests impact
     print_table(
@@ -172,6 +193,8 @@ def main():
         col_key="requests"
     )
 
+    # Save to markdown file
+    save_markdown_report(args.engine, results)
 
 if __name__ == "__main__":
     main()
