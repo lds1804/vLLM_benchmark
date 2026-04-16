@@ -1,61 +1,61 @@
 # LLM Inference Benchmark: vLLM vs Hugging Face
 
-Este repositório contém uma suíte completa de benchmark (testes de estresse) projetada para avaliar e comparar empiricamente o desempenho de inferência da biblioteca de altíssima performance **vLLM** contra a implementação padrão (vanilla) do **Hugging Face Transformers**.
+This repository contains a complete benchmark suite (stress testing) designed to empirically evaluate and compare the inference performance of the ultra-high performance library **vLLM** against the vanilla implementation of **Hugging Face Transformers**.
 
-O objetivo desta suíte é fornecer dados que atestam a diferença brusca de processamento proporcionada pelo gerenciamento otimizado de cache (PagedAttention) e paralelismo de alto nível, exibindo métricas de RPS (Requisições Por Segundo), TPS (Tokens Por Segundo) e a taxa de Ocupação da GPU.
+The goal of this suite is to provide data that proves the stark processing difference provided by optimized cache management (PagedAttention) and high-level parallelism, displaying metrics such as RPS (Requests Per Second), TPS (Tokens Per Second), and GPU Utilization.
 
-## 🛠️ O que tem aqui dentro?
+## 🛠️ What's inside?
 
-- `install_vllm.sh` & `requirements.txt`: Instala todas as dependências do ambiente.
-- `start_server.sh`: Inicia o motor nativo VLLM hospedando a API OpenAI na porta 8000.
-- `hf_api_server.py` & `start_hf_server.sh`: Sobem um servidor mock usando FastAPI e o pipeline Hugging Face para simular o mesmo caminho da API OpenAI (para uma comparação 1:1 rigorosa e justa).
-- `benchmark.py`: A estrela do projeto. Orquestrador "multi-threading" que bombardeia o servidor e ao mesmo tempo mede a utilização de sua GPU rodando o `nvidia-smi` em segundo plano.
+- `install_vllm.sh` & `requirements.txt`: Installs all environment dependencies.
+- `start_server.sh`: Starts the native vLLM engine hosting an OpenAI-compatible API on port 8000.
+- `hf_api_server.py` & `start_hf_server.sh`: Spins up a mock server using FastAPI and the Hugging Face pipeline to simulate the exact OpenAI API path (ensuring a rigorous and fair 1:1 comparison).
+- `benchmark.py`: The star of the project. A multi-threading orchestrator that bombards the server while simultaneously measuring your GPU utilization by running `nvidia-smi` in the background.
 
 ---
 
-## 🚀 Como Executar
+## 🚀 How to Run
 
-### 1. Inicializando o Ambiente
-O único passo de configuração necessário é executar o instalador (recomendamos o ambiente Linux / Container da Vast.ai):
+### 1. Environment Setup
+The only necessary setup step is to run the installer (we recommend a Linux environment or a Vast.ai container):
 ```bash
 bash install_vllm.sh
 ```
 
-### 2. Iniciar o Motor Alvo (Background)
-Em uma janela de terminal, inicie o servidor da sua escolha:
+### 2. Start the Target Engine (Background)
+In a terminal window, start the server of your choice:
 
-Para testar as otimizações revolucionárias do **vLLM**:
+To test the revolutionary optimizations of **vLLM**:
 ```bash
 bash start_server.sh
 ```
 
-Ou, caso queira executar no **Hugging Face** para obter sua baseline:
+Or, if you want to run on **Hugging Face** to get your baseline:
 ```bash
 bash start_hf_server.sh
 ```
-*(Nota: O servidor ficará exposto em `http://localhost:8000`)*
+*(Note: The server will be exposed at `http://localhost:8000`)*
 
-### 3. Disparar a Carga do Benchmark
+### 3. Trigger the Benchmark Load
 
-Tendo habilitado o servidor acima, abra um novo shell/terminal e execute o teste. Você pode (e deve) usar o parâmetro `--engine` para categorizar o nome dos seus resultados de saída.
+With the server running, open a new shell/terminal and run the test. You can (and should) use the `--engine` parameter to categorize the name of your output results.
 
-Para rodar com o motor VLLM:
+To run with the vLLM engine:
 ```bash
 python benchmark.py --engine VLLM
 ```
 
-Para rodar contra a implementação original livre do HF:
+To run against the original vanilla HF implementation:
 ```bash
 python benchmark.py --engine HuggingFace-Original
 ```
 
 ---
 
-## 📊 Relatórios e Saídas
+## 📊 Reports and Outputs
 
-Os resultados serão mostrados imediatamente e de maneira estética no seu terminal com tabelas construídas nativamente pelo `rich` do Python. O Output mostrará o impacto que o aumento de **Concorrência (`requests`)** e de **Profundidade de Saída (`max_tokens`)** gera em RPS, TPS e Custo (% de ocupação da GPU hardware).
+The results will be displayed immediately and beautifully in your terminal with natively built tables by Python's `rich` library. The output will show the impact that increasing **Concurrency (`requests`)** and **Output Depth (`max_tokens`)** has on RPS, TPS, and Cost (% of hardware GPU utilization).
 
-Ao final de cada execução, a suíte irá gerar atomaticamente e salvar um elegante artefato visual em Markdown na raiz:
+At the end of each run, the suite will automatically generate and save an elegant Markdown visual artifact in the root directory:
 `benchmark_results_VLLM.md`
 
-Use este projeto em instâncias e mostre ao mundo as suas evidências métricas!
+Use this project on heavy GPU instances and show the world your empirical evidence!
